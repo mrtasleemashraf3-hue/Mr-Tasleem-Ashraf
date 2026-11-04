@@ -135,9 +135,8 @@ let sb = null, signup = false, chart, series, ws, curTf = "1m", pollTimer, base 
 
 try { 
   sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); 
-  console.log("Supabase initialized successfully.");
 } catch(e) { 
-  console.error("Supabase initialization failed:", e); 
+  console.error("Supabase init error:", e); 
 }
 
 function say(id, text, kind){
@@ -149,7 +148,7 @@ function say(id, text, kind){
 function friendly(m){
   m = (m || "").toLowerCase();
   if(m.includes("invalid login")) return "Wrong email or password (or user does not exist).";
-  if(m.includes("not confirmed")) return "Email not confirmed. Please check your inbox or disable email confirmation.";
+  if(m.includes("not confirmed")) return "Email not confirmed. Please check your inbox or disable email confirmation in Supabase.";
   if(m.includes("already registered")) return "This email already has an account. Tap Login instead.";
   if(m.includes("password")) return "Password must be at least 6 characters.";
   return m;
@@ -179,55 +178,42 @@ $("aswitch").onclick = () => {
 
 $("pass").addEventListener("keydown", e => { if(e.key === "Enter") $("abtn").click(); });
 
-// احاطہ شدہ لاگ ان اور سائن اپ کا بٹن ایونٹ
 $("abtn").onclick = async () => {
   const email = $("email").value.trim();
   const password = $("pass").value;
   const fname = $("fname").value.trim();
   const lname = $("lname").value.trim();
 
-  console.log("Auth button clicked. Mode signup =", signup);
-
   if(!sb){ say("msg","Supabase client not loaded."); return; }
   if(!email || !password){ say("msg","Please enter email and password."); return; }
   if(signup && (!fname || !lname)){ say("msg","Please enter First and Last name."); return; }
-  if(signup && password.length < 6){ say("msg","Password must be at least 6 characters."); return; }
 
   $("abtn").disabled = true; 
-  say("msg", signup ? "Creating account..." : "Logging in...", null);
+  say("msg", signup ? "Creating account..." : "Authenticating...", null);
 
   try {
+    let activeSession = null;
     if(signup){
-      console.log("Calling sb.auth.signUp for:", email);
       const { data, error } = await sb.auth.signUp({ 
         email, 
         password, 
         options: { data: { first_name: fname, last_name: lname } } 
       });
-      if(error){ 
-        console.error("SignUp Error:", error);
-        say("msg", "Signup Error: " + friendly(error.message)); 
-        return; 
-      }
-      console.log("SignUp Response Data:", data);
-      if(!data.session){ 
+      if(error){ say("msg", friendly(error.message)); return; }
+      activeSession = data.session;
+      if(!activeSession){ 
         say("msg", "Account created successfully! Please check your email to confirm, or disable Email Confirmation in Supabase.", true); 
         return; 
       }
     } else {
-      console.log("Calling sb.auth.signInWithPassword for:", email);
       const { data, error } = await sb.auth.signInWithPassword({ email, password });
-      if(error){ 
-        console.error("Login Error:", error);
-        say("msg", "Login Error: " + friendly(error.message)); 
-        return; 
-      }
-      console.log("Login Response Data:", data);
+      if(error){ say("msg", friendly(error.message)); return; }
+      activeSession = data.session;
     }
+    
     say("msg", "Success!", true); 
-    await boot();
+    await boot(activeSession);
   } catch(e) { 
-    console.error("Auth Exception caught:", e);
     say("msg", "Network/Auth error: " + (e.message || e)); 
   } finally { 
     $("abtn").disabled = false; 
@@ -239,14 +225,14 @@ $("out").onclick = async () => {
   boot(); 
 };
 
-async function boot(){
+async function boot(passedSession = null){
   if(!sb) return;
-  let session = null;
-  try { 
-    const g = await sb.auth.getSession(); 
-    session = g.data.session; 
-  } catch(e) {
-    console.error("Get session error:", e);
+  let session = passedSession;
+  if(!session){
+    try { 
+      const g = await sb.auth.getSession(); 
+      session = g.data.session; 
+    } catch(e) {}
   }
   
   if(session && session.user){
