@@ -1,1 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tasleem Smart Trading</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+:root{--bg:#0b0e11;--card:#161a1f;--line:#2a313a;--tx:#eaecef;--mut:#848e9c;--acc:#f0b90b;--up:#0ecb81;--dn:#f6465d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:720px;margin:0 auto;padding:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+h2,h3{margin:0 0 10px}
+input,select,button{width:100%;padding:12px;margin:6px 0;border-radius:6px;border:1px solid var(--line);background:#222831;color:var(--tx);font-size:16px}
+button{background:var(--acc);color:#000;font-weight:700;border:0;cursor:pointer}
+button.red{background:var(--dn);color:#fff}
+.hidden{display:none}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tf{flex:1;min-width:44px;padding:8px 0;margin:2px 0;background:#222831;color:var(--mut);border:1px solid var(--line);font-size:14px}
+.tf.on{background:var(--acc);color:#000}
+.price{font-size:28px;font-weight:700}
+.up{color:var(--up)}.dn{color:var(--dn)}
+.mut{color:var(--mut);font-size:14px}
+#chart{height:340px;width:100%}
+.link{color:var(--acc);text-align:center;cursor:pointer;margin-top:10px}
+#msg,#dmsg,#wmsg{min-height:20px;font-size:14px;color:var(--dn)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
+</style>
+</head>
+<body>
+<div class="wrap">
 
+<div id="auth" class="card">
+  <h2 id="atitle">Login</h2>
+  <input type="email" id="email" placeholder="Email" autocomplete="email">
+  <input type="password" id="pass" placeholder="Password" autocomplete="current-password">
+  <button id="abtn">Login</button>
+  <div class="link" id="aswitch">Don’t have an account? Sign up</div>
+  <p id="msg"></p>
+</div>
+
+<div id="app" class="hidden">
+  <div class="card row" style="justify-content:space-between">
+    <span class="mut">Signed in: <b id="who" style="color:var(--acc)"></b></span>
+    <button class="red" style="width:auto;padding:8px 14px" id="out">Logout</button>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <select id="sym" style="width:auto;flex:1">
+        <option>BTCUSDT</option><option>ETHUSDT</option><option>BNBUSDT</option>
+        <option>SOLUSDT</option><option>XRPUSDT</option><option>DOGEUSDT</option>
+      </select>
+      <div><div class="price" id="px">—</div><div class="mut" id="chg"></div></div>
+    </div>
+    <div class="row" id="tfs"></div>
+    <div id="chart"></div>
+    <div class="mut" id="cstat">Loading candles…</div>
+  </div>
+
+  <div class="card">
+    <h3>Balance</h3>
+    <div class="price" id="bal">$0.00</div>
+    <h3 style="margin-top:14px">Deposit (crypto)</h3>
+    <input type="number" id="amt" placeholder="Amount in USD (min 10)" min="10" inputmode="decimal">
+    <button id="dep">Pay with crypto</button>
+    <p id="dmsg"></p>
+    <h3 style="margin-top:14px">Withdraw</h3>
+    <select id="wcur"><option value="USDTTRC20">USDT (TRC20)</option><option value="USDTBSC">USDT (BSC)</option><option value="BTC">BTC</option><option value="ETH">ETH</option><option value="BNB">BNB</option></select>
+    <input type="text" id="waddr" placeholder="Your wallet address" autocomplete="off">
+    <input type="number" id="wamt" placeholder="Amount in USD (min 10)" min="10" inputmode="decimal">
+    <button id="wd">Request withdrawal</button>
+    <p id="wmsg"></p>
+    <table id="hist"></table>
+  </div>
+</div>
+
+</div>
+
+<script>
+const SUPABASE_URL = "https://ztlhytlptzqbirshwwkf.supabase.co";
+const SUPABASE_KEY = "sb_publishable_1QpAvlAW3a-XPolXUigIkw_uQUkFU9E";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = id => document.getElementById(id);
+const TFS = ["1m","5m","15m","1h","4h","1d","1w"];
+let signup=false, chart, series, ws, curTf="1m", pollTimer, base=null;
+
+$("aswitch").onclick = () => {
+  signup = !signup;
+  $("atitle").textContent = signup ? "Create account" : "Login";
+  $("abtn").textContent = signup ? "Sign up" : "Login";
+  $("aswitch").textContent = signup ? "Already have an account? Login" : "Don’t have an account? Sign up";
+};
+$("abtn").onclick = async () => {
+  const email=$("email").value.trim(), password=$("pass").value;
+  $("msg").style.color="#f6465d"; $("msg").textContent="";
+  if(!email||!password){$("msg").textContent="Enter email and password.";return}
+  const r = signup ? await sb.auth.signUp({email,password}) : await sb.auth.signInWithPassword({email,password});
+  if(r.error){$("msg").textContent=r.error.message;return}
+  if(signup && !r.data.session){$("msg").style.color="#0ecb81";$("msg").textContent="Account created. Check your email to confirm, then login.";return}
+  boot();
+};
+$("out").onclick = async () => { await sb.auth.signOut(); boot(); };
+
+async function boot(){
+  const {data:{session}} = await sb.auth.getSession();
+  $("auth").classList.toggle("hidden", !!session);
+  $("app").classList.toggle("hidden", !sa
