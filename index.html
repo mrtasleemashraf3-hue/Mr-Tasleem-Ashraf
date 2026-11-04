@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tasleem Smart Trading</title>
-    <!-- Supabase JS Client v2 -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --bg-color: #121824;
@@ -24,7 +22,7 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
         body {
@@ -45,13 +43,6 @@
             max-width: 420px;
             padding: 24px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-        }
-
-        .header-title {
-            font-size: 20px;
-            font-weight: bold;
-            margin-bottom: 16px;
-            text-align: center;
         }
 
         .trade-actions {
@@ -107,13 +98,6 @@
             margin-bottom: 16px;
         }
 
-        .form-group label {
-            display: block;
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-bottom: 4px;
-        }
-
         .form-control {
             width: 100%;
             padding: 12px 14px;
@@ -135,6 +119,13 @@
             font-weight: bold;
             font-size: 16px;
             cursor: pointer;
+            text-align: center;
+            display: block;
+            text-decoration: none;
+        }
+
+        .btn-action:hover {
+            background-color: var(--primary-btn-hover);
         }
 
         .status-message {
@@ -142,7 +133,6 @@
             font-size: 13px;
             color: #f59e0b;
             min-height: 20px;
-            word-break: break-word;
         }
 
         .divider {
@@ -155,12 +145,7 @@
 <body>
 
     <div class="trading-card">
-        <div class="header-title">Quick Trade</div>
-
-        <div class="form-group">
-            <input type="number" class="form-control" placeholder="Amount in USD">
-        </div>
-
+        <!-- Trade Actions -->
         <div class="trade-actions">
             <button class="btn-trade btn-buy">Buy / Long</button>
             <button class="btn-trade btn-sell">Sell / Short</button>
@@ -168,96 +153,54 @@
 
         <div class="trade-status">Trade status...</div>
 
+        <!-- Balance Section -->
         <div class="section-title">Balance</div>
         <div class="balance-amount" id="user-balance">$0.00</div>
 
+        <!-- Deposit Section -->
         <div class="subtitle">Deposit (Crypto / Blockchain)</div>
         
         <div class="form-group">
-            <label>Select Currency</label>
-            <select id="deposit-currency" class="form-control">
-                <option value="usdttrc20">USDT (TRC20)</option>
-                <option value="btc">Bitcoin (BTC)</option>
-            </select>
+            <input type="number" id="deposit-amount" class="form-control" placeholder="Amount in USD (min 10)" value="500">
         </div>
 
-        <div class="form-group">
-            <label>Deposit Amount ($ USD)</label>
-            <input type="number" id="deposit-amount" class="form-control" placeholder="Amount in USD (min 10)" value="500" min="10" max="50000">
-        </div>
-
-        <button class="btn-action" id="pay-btn" onclick="handleCryptoDeposit()">Pay with crypto</button>
+        <button class="btn-action" onclick="redirectToPayment()">Pay with crypto</button>
         <div class="status-message" id="deposit-status"></div>
 
         <div class="divider"></div>
 
+        <!-- Withdraw Section -->
         <div class="subtitle">Withdraw</div>
         <div class="form-group">
             <select class="form-control">
                 <option>USDT (TRC20)</option>
-                <option>Bitcoin (BTC)</option>
             </select>
         </div>
         <div class="form-group">
-            <input type="text" class="form-control" placeholder="Your wallet address">
+            <input type="text" class="form-control" placeholder="Your wallet address (e.g. TRC20)">
         </div>
         <div class="form-group">
             <input type="number" class="form-control" placeholder="Amount in USD (min 10)">
         </div>
-        <button class="btn-action">Request withdrawal</button>
+        <button class="btn-action" type="button">Request withdrawal</button>
     </div>
 
     <script>
-        // अपनी असली Supabase डिटेल्स यहाँ पेस्ट करें:
-        const SUPABASE_URL = "https://YOUR_SUPABASE_PROJECT_ID.supabase.co";
-        const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
-
-        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        async function handleCryptoDeposit() {
+        function redirectToPayment() {
             const amountInput = document.getElementById("deposit-amount");
-            const currencySelect = document.getElementById("deposit-currency");
             const statusBox = document.getElementById("deposit-status");
-            const payBtn = document.getElementById("pay-btn");
-
             const amount = Number(amountInput.value);
-            const currency = currencySelect.value;
 
-            if (!Number.isFinite(amount) || amount < 10 || amount > 50000) {
-                alert("कृपया कम से कम $10 और अधिकतम $50,000 दर्ज करें।");
-                if (statusBox) statusBox.innerText = "Invalid amount range.";
+            if (!amount || amount < 10) {
+                alert("कृपया कम से कम $10 दर्ज करें।");
                 return;
             }
 
-            if (statusBox) statusBox.innerText = "Creating payment & blockchain invoice...";
-            payBtn.disabled = true;
+            statusBox.innerText = "Redirecting to NOWPayments Checkout...";
 
-            try {
-                const { data, error } = await sb.functions.invoke("create-deposit", {
-                    body: { amount: amount, pay_currency: currency }
-                });
-
-                if (error) {
-                    console.error("Supabase Error:", error);
-                    alert("पेमेंट अनुरोध विफल हुआ। विवरण कंसोल में देखें।");
-                    if (statusBox) statusBox.innerText = "Error: " + error.message;
-                    payBtn.disabled = false;
-                    return;
-                }
-
-                if (data && typeof data.invoice_url === "string" && data.invoice_url.startsWith("https://")) {
-                    if (statusBox) statusBox.innerText = "Redirecting to NOWPayments...";
-                    window.location.assign(data.invoice_url);
-                } else {
-                    alert("सर्वर से पेमेंट पेज का लिंक नहीं मिल पाया।");
-                    if (statusBox) statusBox.innerText = "Invoice URL missing.";
-                    payBtn.disabled = false;
-                }
-            } catch (err) {
-                console.error("Error:", err);
-                if (statusBox) statusBox.innerText = "Error: " + err.message;
-                payBtn.disabled = false;
-            }
+            // NOWPayments Hosted Payment Redirect
+            // नोट: अगर आपके पास NOWPayments का सीधा Payment Link है तो नीचे URL बदलें
+            window.location.href = "https://nowpayments.io/payment/?iid=5000000000"; 
         }
     </script>
 </body>
