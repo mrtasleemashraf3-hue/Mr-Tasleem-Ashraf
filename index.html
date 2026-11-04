@@ -1,205 +1,392 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tasleem Smart Trading</title>
-  <!-- Supabase CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    :root { --bg: #0f172a; --card: #1e293b; --text: #fff; --mut: #94a3b8; --accent: #d97706; }
-    body { font-family: Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-    .container { max-width: 600px; margin: auto; background: var(--card); padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-    input, select, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff; box-sizing: border-box; }
-    button { background: var(--accent); font-weight: bold; cursor: pointer; border: none; }
-    button:hover { opacity: 0.9; }
-    .msg { font-size: 14px; margin-top: 5px; color: #38bdf8; }
-    .section { margin-top: 25px; border-top: 1px solid #334155; padding-top: 15px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tasleem Smart Trading</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>if(!window.supabase){document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"><\/script>')}</script>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script>if(!window.LightweightCharts){document.write('<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"><\/script>')}</script>
+<style>
+:root{--bg:#0b0e11;--card:#161a1f;--line:#2a313a;--tx:#eaecef;--mut:#848e9c;--acc:#f0b90b;--up:#0ecb81;--dn:#f6465d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:720px;margin:0 auto;padding:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+h2,h3{margin:0 0 10px}
+input,select,button{width:100%;padding:12px;margin:6px 0;border-radius:6px;border:1px solid var(--line);background:#222831;color:var(--tx);font-size:16px}
+button{background:var(--acc);color:#000;font-weight:700;border:0;cursor:pointer}
+button:disabled{opacity:.6}
+button.red{background:var(--dn);color:#fff}
+button.green{background:var(--up);color:#fff}
+.hidden{display:none}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tf{flex:1;min-width:44px;padding:8px 0;margin:2px 0;background:#222831;color:var(--mut);border:1px solid var(--line);font-size:14px}
+.tf.on{background:var(--acc);color:#000}
+.price{font-size:28px;font-weight:700}
+.up{color:var(--up)}.dn{color:var(--dn)}
+.mut{color:var(--mut);font-size:14px}
+#chart{height:340px;width:100%}
+.link{color:var(--acc);text-align:center;cursor:pointer;margin-top:10px;padding:6px}
+.msg{min-height:20px;font-size:14px;margin:8px 0 0;word-break:break-word}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th, td{padding:8px 4px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--mut)}
+a.tx-link{color:var(--acc);text-decoration:underline}
+</style>
 </head>
 <body>
+<div class="wrap">
 
-  <div class="container">
-    <h2>Tasleem Smart Trading</h2>
+<!-- Auth Section -->
+<div id="auth" class="card">
+  <h2 id="atitle">Login</h2>
+  <div id="nameFields" class="hidden">
+    <input type="text" id="fname" placeholder="First Name" autocomplete="given-name">
+    <input type="text" id="lname" placeholder="Last Name" autocomplete="family-name">
+  </div>
+  <input type="email" id="email" placeholder="Email" autocomplete="email">
+  <input type="password" id="pass" placeholder="Password" autocomplete="current-password">
+  <button id="abtn">Login</button>
+  <div class="link" id="aswitch">Don’t have an account? Sign up</div>
+  <p id="msg" class="msg"></p>
+</div>
 
-    <!-- 1. लॉगिन सेक्शन -->
-    <div id="login-section">
-      <h3>Login</h3>
-      <form id="login-form">
-        <input type="email" id="email" placeholder="Email address" required>
-        <input type="password" id="password" placeholder="Password" required>
-        <button type="submit" id="login-button">Login</button>
-        <p id="login-error" class="msg" style="color: #f87171;"></p>
-      </form>
-    </div>
-
-    <!-- 2. ट्रेडिंग सेक्शन (Buy/Sell) -->
-    <div class="section">
-      <h3>Trading</h3>
-      <select id="sym">
-        <option value="BTC/USD">BTC/USD</option>
-        <option value="ETH/USD">ETH/USD</option>
-      </select>
-      <input type="number" id="tradeAmt" placeholder="Trade Amount ($)">
-      <button id="buyBtn">BUY</button>
-      <button id="sellBtn">SELL</button>
-      <div id="tmsg" class="msg"></div>
-    </div>
-
-    <!-- 3. डिपॉजिट सेक्शन -->
-    <div class="section">
-      <h3>Deposit</h3>
-      <input type="number" id="amt" placeholder="Deposit Amount (Min $10)">
-      <button id="dep">Deposit via Gateway</button>
-      <div id="dmsg" class="msg"></div>
-    </div>
-
-    <!-- 4. विड्रॉल सेक्शन -->
-    <div class="section">
-      <h3>Withdrawal</h3>
-      <input type="number" id="wamt" placeholder="Withdrawal Amount (Min $10)">
-      <input type="text" id="waddr" placeholder="Wallet Address (Min 15 chars)">
-      <select id="wcur">
-        <option value="USDT">USDT</option>
-        <option value="BTC">BTC</option>
-      </select>
-      <button id="wd">Request Withdrawal</button>
-      <div id="wmsg" class="msg"></div>
-    </div>
-
+<!-- Main App Section -->
+<div id="app" class="hidden">
+  <div class="card row" style="justify-content:space-between">
+    <span class="mut">Signed in: <b id="who" style="color:var(--acc)"></b></span>
+    <button class="red" style="width:auto;padding:8px 14px" id="out">Logout</button>
   </div>
 
-  <script>
-    // --- SUPABASE INITIALIZATION ---
-    // (अपनी सही URL और Anon Key यहाँ डालें यदि कॉन्फ़िगर नहीं है)
-    const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
-    const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+  <!-- Chart & Market Section -->
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <select id="sym" style="width:auto;flex:1">
+        <option>BTCUSDT</option><option>ETHUSDT</option><option>BNBUSDT</option>
+        <option>SOLUSDT</option><option>XRPUSDT</option><option>DOGEUSDT</option>
+      </select>
+      <div><div class="price" id="px">—</div><div class="mut" id="chg"></div></div>
+    </div>
+    <div class="row" id="tfs"></div>
+    <div id="chart"></div>
+    <div class="mut" id="cstat">Loading candles…</div>
+  </div>
 
-    // मैसेज दिखाने के लिए सहायक फंक्शन
-    function say(elementId, text, isSuccess) {
-      const el = document.getElementById(elementId);
-      if (el) {
-        el.style.color = isSuccess === true ? '#4ade80' : (isSuccess === false ? '#f87171' : '#38bdf8');
-        el.textContent = text;
-      }
+  <!-- Buy / Sell Trading Panel -->
+  <div class="card">
+    <h3>Quick Trade</h3>
+    <div class="row">
+      <input type="number" id="tradeAmt" placeholder="Amount in USD" style="flex:1" min="1" inputmode="decimal">
+    </div>
+    <div class="row">
+      <button class="green" id="buyBtn" style="flex:1">Buy / Long</button>
+      <button class="red" id="sellBtn" style="flex:1">Sell / Short</button>
+    </div>
+    <p id="tmsg" class="msg"></p>
+  </div>
+
+  <!-- Wallet, Deposit & Withdrawal Section -->
+  <div class="card">
+    <h3>Balance</h3>
+    <div class="price" id="bal">$0.00</div>
+    
+    <h3 style="margin-top:14px">Deposit (Crypto / Blockchain)</h3>
+    <input type="number" id="amt" placeholder="Amount in USD (min 10)" min="10" inputmode="decimal">
+    <button id="dep">Pay with crypto</button>
+    <p id="dmsg" class="msg"></p>
+    
+    <h3 style="margin-top:14px">Withdraw</h3>
+    <select id="wcur"><option value="USDTTRC20">USDT (TRC20)</option><option value="USDTBSC">USDT (BSC)</option><option value="BTC">BTC</option><option value="ETH">ETH</option></select>
+    <input type="text" id="waddr" placeholder="Your wallet address (e.g. TRC20)" autocomplete="off">
+    <input type="number" id="wamt" placeholder="Amount in USD (min 10)" min="10" inputmode="decimal">
+    <button id="wd">Request withdrawal</button>
+    <p id="wmsg" class="msg"></p>
+
+    <h3 style="margin-top:16px">Transaction History (Blockchain Verified)</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Txn Hash / Explorer</th>
+          </tr>
+        </thead>
+        <tbody id="hist">
+          <!-- History rows will load dynamically -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://ztlhytlptzqbirshwwkf.supabase.co";
+const SUPABASE_KEY = "sb_publishable_1QpAvlAW3a-XPolXUigIkw_uQUkFU9E";
+
+const $ = id => document.getElementById(id);
+const TFS = ["1m","5m","15m","1h","4h","1d","1w"];
+let sb=null, signup=false, chart, series, ws, curTf="1m", pollTimer, base=null;
+
+try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }catch(e){ console.error(e); }
+
+function say(id, text, kind){
+  const el=$(id); if(!el) return;
+  el.textContent=text||"";
+  el.style.color = kind===true ? "#0ecb81" : kind===null ? "#848e9c" : "#f6465d";
+}
+
+function friendly(m){
+  m=(m||"").toLowerCase();
+  if(m.includes("invalid login")) return "Wrong email or password (or this account does not exist yet).";
+  if(m.includes("not confirmed")) return "Email not confirmed. Confirm it from your email.";
+  if(m.includes("already registered")) return "This email already has an account. Tap Login instead.";
+  if(m.includes("password")) return "Password must be at least 6 characters.";
+  return m;
+}
+
+async function fnError(error){ 
+  try { 
+    if (error.context && typeof error.context.json === 'function') {
+      const errJson = await error.context.json();
+      return errJson.error || error.message;
     }
+    return error.message || "Request failed."; 
+  } catch(e) { 
+    return error.message || "Request failed."; 
+  } 
+}
 
-    // एरर हैंडलर फंक्शन
-    async function fnError(err) {
-      try {
-        if (typeof err === 'string') return err;
-        if (err.message) return err.message;
-        return JSON.stringify(err);
-      } catch(e) {
-        return "Unknown error occurred";
-      }
+$("aswitch").onclick = () => {
+  signup = !signup;
+  $("atitle").textContent = signup ? "Create account" : "Login";
+  $("abtn").textContent = signup ? "Sign up" : "Login";
+  $("nameFields").classList.toggle("hidden", !signup);
+  $("pass").autocomplete = signup ? "new-password" : "current-password";
+  $("aswitch").textContent = signup ? "Already have an account? Login" : "Don’t have an account? Sign up";
+  say("msg","");
+};
+
+$("pass").addEventListener("keydown", e => { if(e.key==="Enter") $("abtn").click(); });
+
+$("abtn").onclick = async () => {
+  const email=$("email").value.trim(), password=$("pass").value;
+  const fname = $("fname").value.trim();
+  const lname = $("lname").value.trim();
+
+  if(!sb){ say("msg","Could not load the login library. Check your internet connection."); return; }
+  if(!email||!password){ say("msg","Enter email and password."); return; }
+  if(signup && (!fname || !lname)){ say("msg","Please enter First Name and Last Name."); return; }
+  if(signup && password.length<6){ say("msg","Password must be at least 6 characters."); return; }
+
+  $("abtn").disabled=true; say("msg", signup?"Creating account…":"Logging in…", null);
+  try{
+    if(signup){
+      const r = await sb.auth.signUp({ email, password, options: { data: { first_name: fname, last_name: lname } } });
+      if(r.error){ say("msg", friendly(r.error.message)); return; }
+      if(!r.data.session){ say("msg","Account created. Check email or use Auto Confirm.", true); return; }
+    } else {
+      const r = await sb.auth.signInWithPassword({email,password});
+      if(r.error){ say("msg", friendly(r.error.message)); return; }
     }
+    say("msg",""); await boot();
+  }catch(e){ say("msg","Network error: "+(e.message||e)); }
+  finally{ $("abtn").disabled=false; }
+};
 
-    // बूट फंक्शन
-    function boot() {
-      console.log("App booted successfully");
+$("out").onclick = async () => { try{ await sb.auth.signOut(); }catch(e){} boot(); };
+
+async function boot(){
+  if(!sb) return;
+  let session=null;
+  try{ const g=await sb.auth.getSession(); session=g.data.session; }catch(e){}
+  $("auth").classList.toggle("hidden", !!session);
+  $("app").classList.toggle("hidden", !session);
+  if(session && session.user){
+    const meta = session.user.user_metadata || {};
+    const displayName = meta.first_name ? `${meta.first_name} ${meta.last_name || ''}` : session.user.email;
+    $("who").textContent = displayName;
+    try{ startChart(); }catch(e){ $("cstat").textContent="Chart could not load: "+e.message; }
+    loadBalance();
+  } else stopFeeds();
+}
+
+function buildTfs(){
+  $("tfs").innerHTML="";
+  TFS.forEach(t=>{
+    const b=document.createElement("button");
+    b.className="tf"+(t===curTf?" on":""); b.textContent=t;
+    b.onclick=()=>{curTf=t;buildTfs();loadCandles()};
+    $("tfs").appendChild(b);
+  });
+}
+
+function startChart(){
+  if(!chart){
+    chart = LightweightCharts.createChart($("chart"),{
+      layout:{background:{color:"#161a1f"},textColor:"#848e9c"},
+      grid:{vertLines:{color:"#222831"},horzLines:{color:"#222831"}},
+      timeScale:{timeVisible:true,secondsVisible:false,borderColor:"#2a313a"},
+      rightPriceScale:{borderColor:"#2a313a"},
+      width:$("chart").clientWidth||300,height:340
+    });
+    series = chart.addCandlestickSeries({upColor:"#0ecb81",downColor:"#f6465d",borderVisible:false,wickUpColor:"#0ecb81",wickDownColor:"#f6465d"});
+    addEventListener("resize",()=>chart.applyOptions({width:$("chart").clientWidth}));
+    $("sym").onchange=loadCandles;
+  }
+  buildTfs(); loadCandles();
+}
+
+function stopFeeds(){ if(ws){ws.onclose=null;ws.close();ws=null} clearTimeout(pollTimer); }
+
+async function loadCandles(){
+  stopFeeds();
+  const s=$("sym").value;
+  $("cstat").textContent="Loading candles…";
+  try{
+    const r=await fetch("https://api.binance.com/api/v3/klines?symbol="+s+"&interval="+curTf+"&limit=500");
+    if(!r.ok) throw new Error(r.status);
+    const k=await r.json();
+    series.setData(k.map(c=>({time:c[0]/1000,open:+c[1],high:+c[2],low:+c[3],close:+c[4]})));
+    chart.timeScale().fitContent();
+    showPx(+k[k.length-1][4], +k[0][1]);
+    $("cstat").textContent="Live · "+s+" · "+curTf;
+    openWs(s);
+  }catch(e){
+    $("cstat").textContent="Binance unreachable. Retrying…";
+    pollTimer=setTimeout(loadCandles,5000);
+  }
+}
+
+function openWs(s){
+  ws=new WebSocket("wss://stream.binance.com:9443/ws/"+s.toLowerCase()+"@kline_"+curTf);
+  ws.onmessage=e=>{
+    const k=JSON.parse(e.data).k;
+    series.update({time:k.t/1000,open:+k.o,high:+k.h,low:+k.l,close:+k.c});
+    showPx(+k.c);
+  };
+  ws.onclose=()=>{ if(!$("app").classList.contains("hidden")) setTimeout(()=>openWs(s),3000) };
+}
+
+function showPx(p,b){
+  if(b) base=b;
+  $("px").textContent=p.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:6});
+  if(base){const d=(p-base)/base*100;$("chg").textContent=(d>=0?"+":"")+d.toFixed(2)+"% (this view)";$("chg").className="mut "+(d>=0?"up":"dn")}
+}
+
+async function loadBalance(){
+  try{
+    const {data:{user}} = await sb.auth.getUser();
+    if(!user) return;
+    const b = await sb.from("balances").select("usd").eq("user_id",user.id).maybeSingle();
+    $("bal").textContent="$"+Number(b.data?.usd||0).toFixed(2);
+    
+    // Load Transaction History (Deposits & Withdrawals with Blockchain Explorer Hash Link)
+    const h = await sb.from("deposits").select("created_at,amount_usd,status,tx_hash").order("created_at",{ascending:false}).limit(10);
+    const rows = (h.data||[]).map(r => {
+      const hashShort = r.tx_hash ? r.tx_hash.substring(0, 10) + "..." : "Pending";
+      const explorerUrl = r.tx_hash ? `https://tronscan.org/#/transaction/${r.tx_hash}` : "#";
+      return `<tr>
+        <td>${new Date(r.created_at).toLocaleDateString()}</td>
+        <td>Deposit</td>
+        <td>$${r.amount_usd}</td>
+        <td>${r.status}</td>
+        <td>${r.tx_hash ? `<a class="tx-link" href="${explorerUrl}" target="_blank">${hashShort} ↗</a>` : 'Processing'}</td>
+      </tr>`;
+    }).join("");
+    $("hist").innerHTML = rows || `<tr><td colspan="5" style="text-align:center;color:var(--mut)">No transactions found</td></tr>`;
+  }catch(e){ console.error(e); }
+}
+
+// Buy / Sell Action Function
+$("buyBtn").onclick = () => {
+  const amt = parseFloat($("tradeAmt").value);
+  if(!amt || amt <= 0){ say("tmsg","Enter a valid trade amount."); return; }
+  say("tmsg", `Successfully opened BUY order for $${amt} on ${$("sym").value}`, true);
+  $("tradeAmt").value = "";
+};
+
+$("sellBtn").onclick = () => {
+  const amt = parseFloat($("tradeAmt").value);
+  if(!amt || amt <= 0){ say("tmsg","Enter a valid trade amount."); return; }
+  say("tmsg", `Successfully opened SELL order for $${amt} on ${$("sym").value}`, false);
+  $("tradeAmt").value = "";
+};
+
+// Deposit Function (Gateway Integration)
+$("dep").onclick = async () => {
+  const amount = parseFloat($("amt").value);
+  if (!(amount >= 10)) { 
+    say("dmsg", "Minimum deposit is $10."); 
+    return; 
+  }
+  say("dmsg", "Creating payment & blockchain invoice…", null);
+  
+  try {
+    const { data, error } = await sb.functions.invoke("create-deposit", { 
+      body: { amount } 
+    });
+    
+    if (error) {
+      const errText = await fnError(error);
+      say("dmsg", errText);
+      return;
     }
-
-    // --- 1. लॉगिन फॉर्म हैंडलर ---
-    const loginForm = document.getElementById('login-form');
-    if (loginForm) {
-      loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value;
-        const errorBox = document.getElementById('login-error');
-        
-        if (errorBox) errorBox.textContent = '';
-
-        try {
-          if (!sb) throw new Error("Supabase client not initialized");
-          const { data, error } = await sb.auth.signInWithPassword({ email, password });
-          if (error) throw error;
-          
-          window.location.href = 'dashboard.html'; 
-        } catch (err) {
-          console.error("Login error:", err);
-          if (errorBox) {
-            errorBox.textContent = err.message || 'लॉगिन विफल रहा।';
-          } else {
-            alert("लॉगिन विफल रहा: " + err.message);
-          }
-        }
-      });
+    
+    if (!data || !data.invoice_url) {
+      say("dmsg", "Payment gateway error: Invoice URL not received.");
+      return;
     }
+    
+    // Payment Gateway पर रीडायरेक्ट करेगा जहाँ एड्रेस और भुगतान की डिटेल मिलेगी
+    location.href = data.invoice_url;
+  } catch (err) {
+    say("dmsg", "Deposit error: " + (err.message || err));
+  }
+};
 
-    // --- 2. ट्रेडिंग बाय / सेल एक्शन फंक्शन्स ---
-    const buyBtn = document.getElementById('buyBtn');
-    if (buyBtn) {
-      buyBtn.onclick = () => {
-        const amt = parseFloat(document.getElementById('tradeAmt').value);
-        if(!amt || amt <= 0){ say("tmsg","Enter a valid trade amount."); return; }
-        say("tmsg", `Successfully opened BUY order for $${amt} on ${document.getElementById('sym').value}`, true);
-        document.getElementById('tradeAmt').value = "";
-      };
+// Withdrawal Function (Blockchain / Binance request call)
+$("wd").onclick = async () => {
+  const amount = parseFloat($("wamt").value);
+  const address = $("waddr").value.trim();
+  const currency = $("wcur").value;
+
+  if (!(amount >= 10) || address.length < 15) { 
+    say("wmsg", "Enter a valid amount (min $10) and wallet address."); 
+    return; 
+  }
+  say("wmsg", "Sending withdrawal request to blockchain…", null);
+
+  try {
+    const { data, error } = await sb.functions.invoke("request-withdrawal", { 
+      body: { amount, address, currency } 
+    });
+    
+    if (error) {
+      const errText = await fnError(error);
+      say("wmsg", errText);
+      return;
     }
+    
+    say("wmsg", "Withdrawal requested successfully. Hash will be tracked on blockchain.", true);
+    $("wamt").value = ""; 
+    $("waddr").value = ""; 
+    loadBalance();
+  } catch (err) {
+    say("wmsg", "Withdrawal error: " + (err.message || err));
+  }
+};
 
-    const sellBtn = document.getElementById('sellBtn');
-    if (sellBtn) {
-      sellBtn.onclick = () => {
-        const amt = parseFloat(document.getElementById('tradeAmt').value);
-        if(!amt || amt <= 0){ say("tmsg","Enter a valid trade amount."); return; }
-        say("tmsg", `Successfully opened SELL order for $${amt} on ${document.getElementById('sym').value}`, false);
-        document.getElementById('tradeAmt').value = "";
-      };
-    }
+if(sb) {
+  sb.auth.onAuthStateChange(() => { boot(); });
+}
 
-    // --- 3. डिपॉजिट फ़ंक्शन ---
-    const depBtn = document.getElementById('dep');
-    if (depBtn) {
-      depBtn.onclick = async () => {
-        const amount = parseFloat(document.getElementById('amt').value);
-        if(!(amount >= 10)){ say("dmsg","Minimum deposit is $10."); return; }
-        say("dmsg","Creating payment & blockchain invoice…", null);
-        
-        const { data, error } = await sb.functions.invoke("create-deposit", { body: { amount } });
-        if (error || !data?.invoice_url) { 
-          say("dmsg", error ? await fnError(error) : "Payment gateway error."); 
-          return; 
-        }
-        location.href = data.invoice_url;
-      };
-    }
-
-    // --- 4. विड्रॉल फ़ंक्शन ---
-    const wdBtn = document.getElementById('wd');
-    if (wdBtn) {
-      wdBtn.onclick = async () => {
-        const amount = parseFloat(document.getElementById('wamt').value);
-        const address = document.getElementById('waddr').value.trim();
-        const currency = document.getElementById('wcur').value;
-
-        if(!(amount >= 10) || address.length < 15) { 
-          say("wmsg","Enter a valid amount (min $10) and wallet address."); 
-          return; 
-        }
-        say("wmsg","Sending withdrawal request to blockchain…", null);
-
-        const { error } = await sb.functions.invoke("request-withdrawal", { body: { amount, address, currency } });
-        if (error) { 
-          say("wmsg", await fnError(error)); 
-          return; 
-        }
-        
-        say("wmsg","Withdrawal requested successfully. Hash will be tracked on blockchain.", true);
-        document.getElementById('wamt').value = ""; 
-        document.getElementById('waddr').value = ""; 
-        if (typeof loadBalance === 'function') loadBalance();
-      };
-    }
-
-    // --- 5. ऑथेंटिकेशन स्टेट चेंज मॉनिटर ---
-    if (sb) {
-      sb.auth.onAuthStateChange(() => { 
-        if (typeof boot === 'function') boot(); 
-      });
-    }
-  </script>
+boot();
+</script>
 </body>
 </html>
