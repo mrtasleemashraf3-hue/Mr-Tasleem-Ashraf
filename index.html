@@ -131,20 +131,25 @@ const SUPABASE_KEY = "sb_publishable_1QpAvlAW3a-XPolXUigIkw_uQUkFU9E";
 
 const $ = id => document.getElementById(id);
 const TFS = ["1m","5m","15m","1h","4h","1d","1w"];
-let sb=null, signup=false, chart, series, ws, curTf="1m", pollTimer, base=null;
+let sb = null, signup = false, chart, series, ws, curTf = "1m", pollTimer, base = null;
 
-try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }catch(e){ console.error(e); }
+try { 
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); 
+  console.log("Supabase initialized successfully.");
+} catch(e) { 
+  console.error("Supabase initialization failed:", e); 
+}
 
 function say(id, text, kind){
-  const el=$(id); if(!el) return;
-  el.textContent=text||"";
-  el.style.color = kind===true ? "#0ecb81" : kind===null ? "#848e9c" : "#f6465d";
+  const el = $(id); if(!el) return;
+  el.textContent = text || "";
+  el.style.color = kind === true ? "#0ecb81" : kind === null ? "#848e9c" : "#f6465d";
 }
 
 function friendly(m){
-  m=(m||"").toLowerCase();
-  if(m.includes("invalid login")) return "Wrong email or password (or this account does not exist yet).";
-  if(m.includes("not confirmed")) return "Email not confirmed. Please check your email inbox.";
+  m = (m || "").toLowerCase();
+  if(m.includes("invalid login")) return "Wrong email or password (or user does not exist).";
+  if(m.includes("not confirmed")) return "Email not confirmed. Please check your inbox or disable email confirmation.";
   if(m.includes("already registered")) return "This email already has an account. Tap Login instead.";
   if(m.includes("password")) return "Password must be at least 6 characters.";
   return m;
@@ -172,69 +177,100 @@ $("aswitch").onclick = () => {
   say("msg","");
 };
 
-$("pass").addEventListener("keydown", e => { if(e.key==="Enter") $("abtn").click(); });
+$("pass").addEventListener("keydown", e => { if(e.key === "Enter") $("abtn").click(); });
 
+// احاطہ شدہ لاگ ان اور سائن اپ کا بٹن ایونٹ
 $("abtn").onclick = async () => {
-  const email=$("email").value.trim(), password=$("pass").value;
+  const email = $("email").value.trim();
+  const password = $("pass").value;
   const fname = $("fname").value.trim();
   const lname = $("lname").value.trim();
 
+  console.log("Auth button clicked. Mode signup =", signup);
+
   if(!sb){ say("msg","Supabase client not loaded."); return; }
-  if(!email||!password){ say("msg","Enter email and password."); return; }
-  if(signup && (!fname || !lname)){ say("msg","Please enter First Name and Last Name."); return; }
-  if(signup && password.length<6){ say("msg","Password must be at least 6 characters."); return; }
+  if(!email || !password){ say("msg","Please enter email and password."); return; }
+  if(signup && (!fname || !lname)){ say("msg","Please enter First and Last name."); return; }
+  if(signup && password.length < 6){ say("msg","Password must be at least 6 characters."); return; }
 
-  $("abtn").disabled=true; 
-  say("msg", signup?"Creating account…":"Logging in…", null);
+  $("abtn").disabled = true; 
+  say("msg", signup ? "Creating account..." : "Logging in...", null);
 
-  try{
+  try {
     if(signup){
-      const r = await sb.auth.signUp({ 
+      console.log("Calling sb.auth.signUp for:", email);
+      const { data, error } = await sb.auth.signUp({ 
         email, 
         password, 
         options: { data: { first_name: fname, last_name: lname } } 
       });
-      if(r.error){ say("msg", friendly(r.error.message)); return; }
-      if(!r.data.session){ 
-        say("msg","Account created successfully! Please check your email to confirm or disable Email Confirmation in Supabase.", true); 
+      if(error){ 
+        console.error("SignUp Error:", error);
+        say("msg", "Signup Error: " + friendly(error.message)); 
+        return; 
+      }
+      console.log("SignUp Response Data:", data);
+      if(!data.session){ 
+        say("msg", "Account created successfully! Please check your email to confirm, or disable Email Confirmation in Supabase.", true); 
         return; 
       }
     } else {
-      const r = await sb.auth.signInWithPassword({ email, password });
-      if(r.error){ say("msg", friendly(r.error.message)); return; }
+      console.log("Calling sb.auth.signInWithPassword for:", email);
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if(error){ 
+        console.error("Login Error:", error);
+        say("msg", "Login Error: " + friendly(error.message)); 
+        return; 
+      }
+      console.log("Login Response Data:", data);
     }
-    say("msg",""); 
+    say("msg", "Success!", true); 
     await boot();
-  }catch(e){ 
-    say("msg","Network/Auth error: " + (e.message || e)); 
-  }finally{ 
-    $("abtn").disabled=false; 
+  } catch(e) { 
+    console.error("Auth Exception caught:", e);
+    say("msg", "Network/Auth error: " + (e.message || e)); 
+  } finally { 
+    $("abtn").disabled = false; 
   }
 };
 
-$("out").onclick = async () => { try{ await sb.auth.signOut(); }catch(e){} boot(); };
+$("out").onclick = async () => { 
+  try { await sb.auth.signOut(); } catch(e){} 
+  boot(); 
+};
 
 async function boot(){
   if(!sb) return;
-  let session=null;
-  try{ const g=await sb.auth.getSession(); session=g.data.session; }catch(e){}
-  $("auth").classList.toggle("hidden", !!session);
-  $("app").classList.toggle("hidden", !session);
+  let session = null;
+  try { 
+    const g = await sb.auth.getSession(); 
+    session = g.data.session; 
+  } catch(e) {
+    console.error("Get session error:", e);
+  }
+  
   if(session && session.user){
+    $("auth").classList.add("hidden");
+    $("app").classList.remove("hidden");
     const meta = session.user.user_metadata || {};
     const displayName = meta.first_name ? `${meta.first_name} ${meta.last_name || ''}` : session.user.email;
     $("who").textContent = displayName;
-    try{ startChart(); }catch(e){ $("cstat").textContent="Chart load error: "+e.message; }
+    try { startChart(); } catch(e) { $("cstat").textContent = "Chart load error: " + e.message; }
     loadBalance();
-  } else stopFeeds();
+  } else {
+    $("auth").classList.remove("hidden");
+    $("app").classList.add("hidden");
+    stopFeeds();
+  }
 }
 
 function buildTfs(){
-  $("tfs").innerHTML="";
-  TFS.forEach(t=>{
-    const b=document.createElement("button");
-    b.className="tf"+(t===curTf?" on":""); b.textContent=t;
-    b.onclick=()=>{curTf=t;buildTfs();loadCandles()};
+  $("tfs").innerHTML = "";
+  TFS.forEach(t => {
+    const b = document.createElement("button");
+    b.className = "tf" + (t === curTf ? " on" : ""); 
+    b.textContent = t;
+    b.onclick = () => { curTf = t; buildTfs(); loadCandles(); };
     $("tfs").appendChild(b);
   });
 }
@@ -242,65 +278,69 @@ function buildTfs(){
 function startChart(){
   if(!chart){
     chart = LightweightCharts.createChart($("chart"),{
-      layout:{background:{color:"#161a1f"},textColor:"#848e9c"},
-      grid:{vertLines:{color:"#222831"},horzLines:{color:"#222831"}},
-      timeScale:{timeVisible:true,secondsVisible:false,borderColor:"#2a313a"},
-      rightPriceScale:{borderColor:"#2a313a"},
-      width:$("chart").clientWidth||300,height:340
+      layout:{ background:{ color:"#161a1f" }, textColor:"#848e9c" },
+      grid:{ vertLines:{ color:"#222831" }, horzLines:{ color:"#222831" } },
+      timeScale:{ timeVisible:true, secondsVisible:false, borderColor:"#2a313a" },
+      rightPriceScale:{ borderColor:"#2a313a" },
+      width: $("chart").clientWidth || 300, height: 340
     });
-    series = chart.addCandlestickSeries({upColor:"#0ecb81",downColor:"#f6465d",borderVisible:false,wickUpColor:"#0ecb81",wickDownColor:"#f6465d"});
-    addEventListener("resize",()=>chart.applyOptions({width:$("chart").clientWidth}));
-    $("sym").onchange=loadCandles;
+    series = chart.addCandlestickSeries({ upColor:"#0ecb81", downColor:"#f6465d", borderVisible:false, wickUpColor:"#0ecb81", wickDownColor:"#f6465d" });
+    addEventListener("resize", () => chart.applyOptions({ width: $("chart").clientWidth }));
+    $("sym").onchange = loadCandles;
   }
   buildTfs(); loadCandles();
 }
 
-function stopFeeds(){ if(ws){ws.onclose=null;ws.close();ws=null} clearTimeout(pollTimer); }
+function stopFeeds(){ if(ws){ ws.onclose = null; ws.close(); ws = null; } clearTimeout(pollTimer); }
 
 async function loadCandles(){
   stopFeeds();
-  const s=$("sym").value;
-  $("cstat").textContent="Loading candles…";
-  try{
-    const r=await fetch("https://api.binance.com/api/v3/klines?symbol="+s+"&interval="+curTf+"&limit=500");
+  const s = $("sym").value;
+  $("cstat").textContent = "Loading candles…";
+  try {
+    const r = await fetch("https://api.binance.com/api/v3/klines?symbol=" + s + "&interval=" + curTf + "&limit=500");
     if(!r.ok) throw new Error(r.status);
-    const k=await r.json();
-    series.setData(k.map(c=>({time:c[0]/1000,open:+c[1],high:+c[2],low:+c[3],close:+c[4]})));
+    const k = await r.json();
+    series.setData(k.map(c => ({ time: c[0]/1000, open: +c[1], high: +c[2], low: +c[3], close: +c[4] })));
     chart.timeScale().fitContent();
     showPx(+k[k.length-1][4], +k[0][1]);
-    $("cstat").textContent="Live · "+s+" · "+curTf;
+    $("cstat").textContent = "Live · " + s + " · " + curTf;
     openWs(s);
-  }catch(e){
-    $("cstat").textContent="Binance unreachable. Retrying…";
-    pollTimer=setTimeout(loadCandles,5000);
+  } catch(e) {
+    $("cstat").textContent = "Binance unreachable. Retrying…";
+    pollTimer = setTimeout(loadCandles, 5000);
   }
 }
 
 function openWs(s){
-  ws=new WebSocket("wss://stream.binance.com:9443/ws/"+s.toLowerCase()+"@kline_"+curTf);
-  ws.onmessage=e=>{
-    const k=JSON.parse(e.data).k;
-    series.update({time:k.t/1000,open:+k.o,high:+k.h,low:+k.l,close:+k.c});
+  ws = new WebSocket("wss://stream.binance.com:9443/ws/" + s.toLowerCase() + "@kline_" + curTf);
+  ws.onmessage = e => {
+    const k = JSON.parse(e.data).k;
+    series.update({ time: k.t/1000, open: +k.o, high: +k.h, low: +k.l, close: +k.c });
     showPx(+k.c);
   };
-  ws.onclose=()=>{ if(!$("app").classList.contains("hidden")) setTimeout(()=>openWs(s),3000) };
+  ws.onclose = () => { if(!$("app").classList.contains("hidden")) setTimeout(() => openWs(s), 3000); };
 }
 
 function showPx(p,b){
-  if(b) base=b;
-  $("px").textContent=p.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:6});
-  if(base){const d=(p-base)/base*100;$("chg").textContent=(d>=0?"+":"")+d.toFixed(2)+"% (this view)";$("chg").className="mut "+(d>=0?"up":"dn")}
+  if(b) base = b;
+  $("px").textContent = p.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+  if(base){
+    const d = (p - base) / base * 100;
+    $("chg").textContent = (d >= 0 ? "+" : "") + d.toFixed(2) + "% (this view)";
+    $("chg").className = "mut " + (d >= 0 ? "up" : "dn");
+  }
 }
 
 async function loadBalance(){
-  try{
-    const {data:{user}} = await sb.auth.getUser();
+  try {
+    const { data: { user } } = await sb.auth.getUser();
     if(!user) return;
-    const b = await sb.from("balances").select("usd").eq("user_id",user.id).maybeSingle();
-    $("bal").textContent="$"+Number(b.data?.usd||0).toFixed(2);
+    const b = await sb.from("balances").select("usd").eq("user_id", user.id).maybeSingle();
+    $("bal").textContent = "$" + Number(b.data?.usd || 0).toFixed(2);
     
-    const h = await sb.from("deposits").select("created_at,amount_usd,status,tx_hash").order("created_at",{ascending:false}).limit(10);
-    const rows = (h.data||[]).map(r => {
+    const h = await sb.from("deposits").select("created_at,amount_usd,status,tx_hash").order("created_at", { ascending: false }).limit(10);
+    const rows = (h.data || []).map(r => {
       const hashShort = r.tx_hash ? r.tx_hash.substring(0, 10) + "..." : "Pending";
       const explorerUrl = r.tx_hash ? `https://tronscan.org/#/transaction/${r.tx_hash}` : "#";
       return `<tr>
@@ -312,7 +352,9 @@ async function loadBalance(){
       </tr>`;
     }).join("");
     $("hist").innerHTML = rows || `<tr><td colspan="5" style="text-align:center;color:var(--mut)">No transactions found</td></tr>`;
-  }catch(e){ console.error(e); }
+  } catch(e) { 
+    console.error("Load balance error:", e); 
+  }
 }
 
 $("buyBtn").onclick = () => {
