@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Tasleem Smart Trading - Debug Version</title>
+<title>Tasleem Smart Trading</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>if(!window.supabase){document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"><\/script>')}</script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
-<script>if(!window.LightweightCharts){document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/lightweight-charts.standalone.production.js"><\/script>')}</script>
+<script>if(!window.LightweightCharts){document.write('<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"><\/script>')}</script>
 <style>
 :root{--bg:#0b0e11;--card:#161a1f;--line:#2a313a;--tx:#eaecef;--mut:#848e9c;--acc:#f0b90b;--up:#0ecb81;--dn:#f6465d}
 *{box-sizing:border-box}
@@ -50,7 +50,7 @@ a.tx-link{color:var(--acc);text-decoration:underline}
   <input type="password" id="pass" placeholder="Password" autocomplete="current-password">
   <button id="abtn">Login</button>
   <div class="link" id="aswitch">Don’t have an account? Sign up</div>
-  <p id="msg" class="msg">System ready. Enter credentials...</p>
+  <p id="msg" class="msg">System ready...</p>
 </div>
 
 <!-- Main App Section -->
@@ -84,7 +84,7 @@ a.tx-link{color:var(--acc);text-decoration:underline}
       <button class="green" id="buyBtn" style="flex:1">Buy / Long</button>
       <button class="red" id="sellBtn" style="flex:1">Sell / Short</button>
     </div>
-    <p id="tmsg" class="msg">Trade status log...</p>
+    <p id="tmsg" class="msg">Trade status...</p>
   </div>
 
   <!-- Wallet, Deposit & Withdrawal Section -->
@@ -95,14 +95,14 @@ a.tx-link{color:var(--acc);text-decoration:underline}
     <h3 style="margin-top:14px">Deposit (Crypto / Blockchain)</h3>
     <input type="number" id="amt" placeholder="Amount in USD (min 10)" min="10" inputmode="decimal">
     <button id="dep">Pay with crypto</button>
-    <p id="dmsg" class="msg">Deposit log...</p>
+    <p id="dmsg" class="msg">Deposit status...</p>
     
     <h3 style="margin-top:14px">Withdraw</h3>
     <select id="wcur"><option value="USDTTRC20">USDT (TRC20)</option><option value="USDTBSC">USDT (BSC)</option><option value="BTC">BTC</option><option value="ETH">ETH</option></select>
     <input type="text" id="waddr" placeholder="Your wallet address (e.g. TRC20)" autocomplete="off">
     <input type="number" id="wamt" placeholder="Amount in USD (min 10)" min="10" inputmode="decimal">
     <button id="wd">Request withdrawal</button>
-    <p id="wmsg" class="msg">Withdrawal log...</p>
+    <p id="wmsg" class="msg">Withdrawal status...</p>
 
     <h3 style="margin-top:16px">Transaction History (Blockchain Verified)</h3>
     <div style="overflow-x:auto;">
@@ -133,12 +133,7 @@ const $ = id => document.getElementById(id);
 const TFS = ["1m","5m","15m","1h","4h","1d","1w"];
 let sb=null, signup=false, chart, series, ws, curTf="1m", pollTimer, base=null;
 
-try{ 
-  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); 
-  console.log("Supabase initialized successfully");
-}catch(e){ 
-  console.error("Supabase init error:", e); 
-}
+try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }catch(e){ console.error(e); }
 
 function say(id, text, kind){
   const el=$(id); if(!el) return;
@@ -149,7 +144,7 @@ function say(id, text, kind){
 function friendly(m){
   m=(m||"").toLowerCase();
   if(m.includes("invalid login")) return "Wrong email or password (or this account does not exist yet).";
-  if(m.includes("not confirmed")) return "Email not confirmed. Confirm it from your email.";
+  if(m.includes("not confirmed")) return "Email not confirmed. Please check your email inbox.";
   if(m.includes("already registered")) return "This email already has an account. Tap Login instead.";
   if(m.includes("password")) return "Password must be at least 6 characters.";
   return m;
@@ -161,7 +156,7 @@ async function fnError(error){
       const errJson = await error.context.json();
       return errJson.error || error.message;
     }
-    return error.message || JSON.stringify(error) || "Request failed."; 
+    return error.message || "Request failed."; 
   } catch(e) { 
     return error.message || "Request failed."; 
   } 
@@ -184,51 +179,40 @@ $("abtn").onclick = async () => {
   const fname = $("fname").value.trim();
   const lname = $("lname").value.trim();
 
-  if(!sb){ say("msg","Supabase client failed to load."); return; }
+  if(!sb){ say("msg","Supabase client not loaded."); return; }
   if(!email||!password){ say("msg","Enter email and password."); return; }
   if(signup && (!fname || !lname)){ say("msg","Please enter First Name and Last Name."); return; }
   if(signup && password.length<6){ say("msg","Password must be at least 6 characters."); return; }
 
   $("abtn").disabled=true; 
-  say("msg", signup?"Creating account in Supabase…":"Logging in to Supabase…", null);
-  
-  try {
+  say("msg", signup?"Creating account…":"Logging in…", null);
+
+  try{
     if(signup){
       const r = await sb.auth.signUp({ 
         email, 
         password, 
         options: { data: { first_name: fname, last_name: lname } } 
       });
-      
-      if(r.error) {
-        say("msg", "Signup Error: " + friendly(r.error.message));
-        return;
-      }
-      if(!r.data.session) {
-        say("msg", "Account created successfully! Please check your email or confirm.", true);
-        return;
+      if(r.error){ say("msg", friendly(r.error.message)); return; }
+      if(!r.data.session){ 
+        say("msg","Account created successfully! Please check your email to confirm or disable Email Confirmation in Supabase.", true); 
+        return; 
       }
     } else {
       const r = await sb.auth.signInWithPassword({ email, password });
-      if(r.error) {
-        say("msg", "Login Error: " + friendly(r.error.message));
-        return;
-      }
+      if(r.error){ say("msg", friendly(r.error.message)); return; }
     }
-    say("msg", "Success!", true); 
+    say("msg",""); 
     await boot();
-  } catch(e) { 
-    say("msg", "Network/Exception Error: " + (e.message || e)); 
-    console.error("Auth exception:", e);
-  } finally { 
+  }catch(e){ 
+    say("msg","Network/Auth error: " + (e.message || e)); 
+  }finally{ 
     $("abtn").disabled=false; 
   }
 };
 
-$("out").onclick = async () => { 
-  try { await sb.auth.signOut(); } catch(e){} 
-  boot(); 
-};
+$("out").onclick = async () => { try{ await sb.auth.signOut(); }catch(e){} boot(); };
 
 async function boot(){
   if(!sb) return;
@@ -328,7 +312,7 @@ async function loadBalance(){
       </tr>`;
     }).join("");
     $("hist").innerHTML = rows || `<tr><td colspan="5" style="text-align:center;color:var(--mut)">No transactions found</td></tr>`;
-  }catch(e){ console.error("Balance load error:", e); }
+  }catch(e){ console.error(e); }
 }
 
 $("buyBtn").onclick = () => {
@@ -345,14 +329,14 @@ $("sellBtn").onclick = () => {
   $("tradeAmt").value = "";
 };
 
-// Deposit Function with Detailed Debugging
+// Deposit Function
 $("dep").onclick = async () => {
   const amount = parseFloat($("amt").value);
   if (!(amount >= 10)) { 
     say("dmsg", "Minimum deposit is $10."); 
     return; 
   }
-  say("dmsg", "Invoking 'create-deposit' Edge Function...", null);
+  say("dmsg", "Creating payment & blockchain invoice…", null);
   
   try {
     const { data, error } = await sb.functions.invoke("create-deposit", { 
@@ -361,35 +345,32 @@ $("dep").onclick = async () => {
     
     if (error) {
       const errText = await fnError(error);
-      say("dmsg", "Edge Function Error: " + errText);
-      console.error("Deposit function error details:", error);
+      say("dmsg", "Deposit Error: " + errText);
       return;
     }
     
     if (!data || !data.invoice_url) {
-      say("dmsg", "Gateway Error: Response did not include invoice_url. Data: " + JSON.stringify(data));
+      say("dmsg", "Payment gateway error: Invoice URL not received.");
       return;
     }
     
-    say("dmsg", "Redirecting to payment gateway...", true);
     location.href = data.invoice_url;
   } catch (err) {
-    say("dmsg", "Deposit Exception: " + (err.message || err));
-    console.error("Deposit catch exception:", err);
+    say("dmsg", "Deposit error: " + (err.message || err));
   }
 };
 
-// Withdrawal Function with Detailed Debugging
+// Withdrawal Function
 $("wd").onclick = async () => {
   const amount = parseFloat($("wamt").value);
   const address = $("waddr").value.trim();
   const currency = $("wcur").value;
 
   if (!(amount >= 10) || address.length < 15) { 
-    say("wmsg", "Enter a valid amount (min $10) and wallet address."); 
+    say("wmsg", "Enter a valid amount (min 10) and wallet address."); 
     return; 
   }
-  say("wmsg", "Invoking 'request-withdrawal' Edge Function...", null);
+  say("wmsg", "Sending withdrawal request to blockchain…", null);
 
   try {
     const { data, error } = await sb.functions.invoke("request-withdrawal", { 
@@ -398,26 +379,21 @@ $("wd").onclick = async () => {
     
     if (error) {
       const errText = await fnError(error);
-      say("wmsg", "Withdrawal Edge Error: " + errText);
-      console.error("Withdrawal error details:", error);
+      say("wmsg", "Withdrawal Error: " + errText);
       return;
     }
     
-    say("wmsg", "Withdrawal requested successfully!", true);
+    say("wmsg", "Withdrawal requested successfully. Hash will be tracked on blockchain.", true);
     $("wamt").value = ""; 
     $("waddr").value = ""; 
     loadBalance();
   } catch (err) {
-    say("wmsg", "Withdrawal Exception: " + (err.message || err));
-    console.error("Withdrawal catch exception:", err);
+    say("wmsg", "Withdrawal error: " + (err.message || err));
   }
 };
 
 if(sb) {
-  sb.auth.onAuthStateChange((event, session) => { 
-    console.log("Auth state changed event:", event);
-    boot(); 
-  });
+  sb.auth.onAuthStateChange(() => { boot(); });
 }
 
 boot();
