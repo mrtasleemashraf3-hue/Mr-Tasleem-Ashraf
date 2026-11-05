@@ -19,6 +19,7 @@ input,select,button{width:100%;padding:12px;margin:6px 0;border-radius:6px;borde
 button{background:var(--acc);color:#000;font-weight:700;border:0;cursor:pointer}
 button:disabled{opacity:.6}
 button.red{background:var(--dn);color:#fff}
+button.green{background:var(--up);color:#000}
 .hidden{display:none}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .tf{flex:1;min-width:44px;padding:8px 0;margin:2px 0;background:#222831;color:var(--mut);border:1px solid var(--line);font-size:14px}
@@ -62,6 +63,19 @@ td{padding:6px 4px;border-bottom:1px solid var(--line)}
     <div id="chart"></div>
     <div class="mut" id="cstat">Loading candles…</div>
   </div>
+
+  <div class="card">
+    <h3>Trade <span class="mut" id="tsym"></span></h3>
+    <div class="mut" id="hold">You hold: —</div>
+    <input type="number" id="tamt" placeholder="Amount in USD (min 1)" min="1" inputmode="decimal">
+    <div class="row" style="flex-wrap:nowrap">
+      <button id="buy" class="green">Buy</button>
+      <button id="sell" class="red">Sell</button>
+    </div>
+    <p id="tmsg" class="msg"></p>
+    <table id="thist"></table>
+  </div>
+
   <div class="card">
     <h3>Balance</h3>
     <div class="price" id="bal">$0.00</div>
@@ -75,6 +89,7 @@ td{padding:6px 4px;border-bottom:1px solid var(--line)}
     <input type="number" id="wamt" placeholder="Amount in USD (min 10)" min="10" inputmode="decimal">
     <button id="wd">Request withdrawal</button>
     <p id="wmsg" class="msg"></p>
+    <h3 style="margin-top:14px">Deposits</h3>
     <table id="hist"></table>
   </div>
 </div>
@@ -86,7 +101,8 @@ const SUPABASE_KEY = "sb_publishable_1QpAvlAW3a-XPolXUigIkw_uQUkFU9E";
 
 const $ = id => document.getElementById(id);
 const TFS = ["1m","5m","15m","1h","4h","1d","1w"];
-let sb=null, signup=false, chart, series, ws, curTf="1m", pollTimer, base=null;
+const APIS = ["https://api.binance.com","https://data-api.binance.vision"];
+let sb=null, signup=false, chart, series, ws, curTf="1m", pollTimer, base=null, lastPx=0, holds={};
 try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }catch(e){ console.error(e); }
 
 function say(id, text, kind){
@@ -102,7 +118,10 @@ function friendly(m){
   if(m.includes("password")) return "Password must be at least 6 characters.";
   return m;
 }
-async function fnError(error){ try{ return (await error.context.json()).error || error.message; }catch(e){ return error.message||"Request failed."; } }
+async function fnError(error){
+  if(error && error.name==="FunctionsFetchError") return "Server function unreachable. Check that it is deployed and Verify JWT is OFF.";
+  try{ return (await error.context.json()).error || error.message; }catch(e){ return (error&&error.message)||"Request failed."; }
+}
 
 $("aswitch").onclick = () => {
   signup = !signup;
@@ -163,20 +182,27 @@ function startChart(){
     });
     series = chart.addCandlestickSeries({upColor:"#0ecb81",downColor:"#f6465d",borderVisible:false,wickUpColor:"#0ecb81",wickDownColor:"#f6465d"});
     addEventListener("resize",()=>chart.applyOptions({width:$("chart").clientWidth}));
-    $("sym").onchange=loadCandles;
+    $("sym").onchange=()=>{lastPx=0;showHold();loadCandles()};
   }
   buildTfs(); loadCandles();
 }
 function stopFeeds(){ if(ws){ws.onclose=null;ws.close();ws=null} clearTimeout(pollTimer); }
 
+async function getKlines(s){
+  for(const a of APIS){
+    try{
+      const r=await fetch(a+"/api/v3/klines?symbol="+s+"&interval="+curTf+"&limit=500");
+      if(r.ok) return await r.json();
+    }catch(e){}
+  }
+  throw new Error("unreachable");
+}
 async function loadCandles(){
   stopFeeds();
   const s=$("sym").value;
   $("cstat").textContent="Loading candles…";
   try{
-    const r=await fetch("https://api.binance.com/api/v3/klines?symbol="+s+"&interval="+curTf+"&limit=500");
-    if(!r.ok) throw new Error(r.status);
-    const k=await r.json();
+    const k=await getKlines(s);
     series.setData(k.map(c=>({time:c[0]/1000,open:+c[1],high:+c[2],low:+c[3],close:+c[4]})));
     chart.timeScale().fitContent();
     showPx(+k[k.length-1][4], +k[0][1]);
@@ -198,8 +224,15 @@ function openWs(s){
 }
 function showPx(p,b){
   if(b) base=b;
+  lastPx=p;
   $("px").textContent=p.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:6});
   if(base){const d=(p-base)/base*100;$("chg").textContent=(d>=0?"+":"")+d.toFixed(2)+"% (this view)";$("chg").className="mut "+(d>=0?"up":"dn")}
+  showHold();
+}
+function showHold(){
+  const s=$("sym").value, q=holds[s]||0;
+  $("tsym").textContent=s;
+  $("hold").textContent="You hold: "+q.toFixed(6)+" "+s.replace("USDT","")+(lastPx?" (≈ $"+(q*lastPx).toFixed(2)+")":"");
 }
 
 async function loadBalance(){
@@ -209,22 +242,44 @@ async function loadBalance(){
     $("bal").textContent="$"+Number(b.data?.usd||0).toFixed(2);
     const h = await sb.from("deposits").select("created_at,amount_usd,status").order("created_at",{ascending:false}).limit(5);
     $("hist").innerHTML=(h.data||[]).map(r=>"<tr><td>"+new Date(r.created_at).toLocaleDateString()+"</td><td>$"+r.amount_usd+"</td><td>"+r.status+"</td></tr>").join("");
+    const ho = await sb.from("holdings").select("symbol,qty").eq("user_id",user.id);
+    holds={}; (ho.data||[]).forEach(r=>{holds[r.symbol]=Number(r.qty)});
+    showHold();
+    const t = await sb.from("trades").select("created_at,symbol,side,usd,price").order("created_at",{ascending:false}).limit(5);
+    $("thist").innerHTML=(t.data||[]).map(r=>"<tr><td>"+new Date(r.created_at).toLocaleDateString()+"</td><td class='"+(r.side==="buy"?"up":"dn")+"'>"+r.side+"</td><td>"+r.symbol.replace("USDT","")+"</td><td>$"+Number(r.usd).toFixed(2)+"</td></tr>").join("");
   }catch(e){}
 }
+setInterval(()=>{ if(sb && !$("app").classList.contains("hidden")) loadBalance(); }, 20000);
+
+async function trade(side){
+  const usd=Math.round(parseFloat($("tamt").value)*100)/100, symbol=$("sym").value;
+  if(!(usd>=1)){ say("tmsg","Minimum trade is $1."); return; }
+  $("buy").disabled=true; $("sell").disabled=true; say("tmsg","Placing order…",null);
+  const {data,error}=await sb.functions.invoke("trade",{body:{symbol,side,usd}});
+  $("buy").disabled=false; $("sell").disabled=false;
+  if(error){ say("tmsg", await fnError(error)); return; }
+  if(data?.error){ say("tmsg", data.error); return; }
+  say("tmsg",(side==="buy"?"Bought":"Sold")+" $"+usd.toFixed(2)+" of "+symbol.replace("USDT","")+" at "+Number(data.price).toLocaleString(),true);
+  $("tamt").value=""; loadBalance();
+}
+$("buy").onclick=()=>trade("buy");
+$("sell").onclick=()=>trade("sell");
+
 $("dep").onclick = async () => {
   const amount=parseFloat($("amt").value);
   if(!(amount>=10)){ say("dmsg","Minimum deposit is $10."); return; }
   say("dmsg","Creating payment…",null);
   const {data,error}=await sb.functions.invoke("create-deposit",{body:{amount}});
-  if(error||!data?.invoice_url){ say("dmsg", error ? await fnError(error) : "Payment gateway error."); return; }
+  if(error||!data?.invoice_url){ say("dmsg", error ? await fnError(error) : (data?.error||"Payment gateway error.")); return; }
   location.href=data.invoice_url;
 };
 $("wd").onclick = async () => {
   const amount=parseFloat($("wamt").value), address=$("waddr").value.trim(), currency=$("wcur").value;
   if(!(amount>=10)||address.length<25){ say("wmsg","Enter a valid amount (min $10) and wallet address."); return; }
   say("wmsg","Sending request…",null);
-  const {error}=await sb.functions.invoke("request-withdrawal",{body:{amount,address,currency}});
+  const {data,error}=await sb.functions.invoke("request-withdrawal",{body:{amount,address,currency}});
   if(error){ say("wmsg", await fnError(error)); return; }
+  if(data?.error){ say("wmsg", data.error); return; }
   say("wmsg","Withdrawal requested. It will be sent after review.",true);
   $("wamt").value=""; loadBalance();
 };
