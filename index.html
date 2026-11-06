@@ -64,6 +64,7 @@ td{padding:6px 4px;border-bottom:1px solid var(--line)}
     <button id="t-wallet">Wallet</button>
   </div>
 
+  <div id="dbg" class="mut" style="word-break:break-all;margin-bottom:8px"></div>
   <div id="pg-trade">
     <div class="card row" style="justify-content:space-between">
       <span class="mut">Balance</span>
@@ -282,6 +283,7 @@ async function loadBalance(){
   if(!uid) return;
   try{
     const b=await sb.from("balances").select("usd").eq("user_id",uid).maybeSingle();
+    $("dbg").textContent="uid="+uid+" | err="+(b.error?b.error.message:"none")+" | data="+JSON.stringify(b.data)+" | project="+SUPABASE_URL.split("//")[1].split(".")[0];
     if(b.error){ say("berr","Balance error: "+b.error.message); }
     else{ say("berr",""); const v=money(b.data?.usd); $("bal").textContent=v; $("bal2").textContent=v; }
   }catch(e){ say("berr","Balance error: "+(e.message||e)); }
