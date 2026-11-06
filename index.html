@@ -12,7 +12,7 @@
 :root{--bg:#0b0e11;--card:#161a1f;--line:#2a313a;--tx:#eaecef;--mut:#848e9c;--acc:#f0b90b;--up:#0ecb81;--dn:#f6465d}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-.wrap{max-width:720px;margin:0 auto;padding:14px}
+.wrap{max-width:720px;margin:0 auto;padding:12px;padding-bottom:40px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
 h2,h3{margin:0 0 10px}
 input,select,button{width:100%;padding:12px;margin:6px 0;border-radius:6px;border:1px solid var(--line);background:#222831;color:var(--tx);font-size:16px}
@@ -21,8 +21,15 @@ button:disabled{opacity:.6}
 button.red{background:var(--dn);color:#fff}
 button.green{background:var(--up);color:#000}
 .hidden{display:none}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.tf{flex:1;min-width:44px;padding:8px 0;margin:2px 0;background:#222831;color:var(--mut);border:1px solid var(--line);font-size:14px}
+.row{display:flex;gap:8px;align-items:center}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+.top .mut{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.top button{width:auto;margin:0;padding:7px 12px;font-size:14px}
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tabs button{margin:0;background:#222831;color:var(--mut);border:1px solid var(--line)}
+.tabs button.on{background:var(--acc);color:#000;border-color:var(--acc)}
+#tfs{display:flex;gap:4px;margin:8px 0}
+.tf{flex:1;min-width:0;padding:8px 0;margin:0;background:#222831;color:var(--mut);border:1px solid var(--line);font-size:13px}
 .tf.on{background:var(--acc);color:#000}
 .price{font-size:28px;font-weight:700}
 .up{color:var(--up)}.dn{color:var(--dn)}
@@ -32,6 +39,7 @@ button.green{background:var(--up);color:#000}
 .msg{min-height:20px;font-size:14px;margin:8px 0 0;word-break:break-word}
 table{width:100%;border-collapse:collapse;font-size:14px}
 td{padding:6px 4px;border-bottom:1px solid var(--line)}
+.sub{margin:16px 0 4px;font-size:16px}
 </style>
 </head>
 <body>
@@ -47,50 +55,70 @@ td{padding:6px 4px;border-bottom:1px solid var(--line)}
 </div>
 
 <div id="app" class="hidden">
-  <div class="card row" style="justify-content:space-between">
+  <div class="top">
     <span class="mut">Signed in: <b id="who" style="color:var(--acc)"></b></span>
-    <button class="red" style="width:auto;padding:8px 14px" id="out">Logout</button>
+    <button class="red" id="out">Logout</button>
   </div>
-  <div class="card">
-    <div class="row" style="justify-content:space-between">
-      <select id="sym" style="width:auto;flex:1">
-        <option>BTCUSDT</option><option>ETHUSDT</option><option>BNBUSDT</option>
-        <option>SOLUSDT</option><option>XRPUSDT</option><option>DOGEUSDT</option>
-      </select>
-      <div><div class="price" id="px">—</div><div class="mut" id="chg"></div></div>
-    </div>
-    <div class="row" id="tfs"></div>
-    <div id="chart"></div>
-    <div class="mut" id="cstat">Loading candles…</div>
+  <div class="tabs">
+    <button id="t-trade" class="on">Trade</button>
+    <button id="t-wallet">Wallet</button>
   </div>
 
-  <div class="card">
-    <h3>Trade <span class="mut" id="tsym"></span></h3>
-    <div class="mut" id="hold">You hold: —</div>
-    <input type="number" id="tamt" placeholder="Amount in USD (min 1)" min="1" inputmode="decimal">
-    <div class="row" style="flex-wrap:nowrap">
-      <button id="buy" class="green">Buy</button>
-      <button id="sell" class="red">Sell</button>
+  <div id="pg-trade">
+    <div class="card row" style="justify-content:space-between">
+      <span class="mut">Balance</span>
+      <b id="bal2" style="font-size:20px;color:var(--acc)">$0.00</b>
     </div>
-    <p id="tmsg" class="msg"></p>
-    <table id="thist"></table>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <select id="sym" style="width:auto;flex:1">
+          <option>BTCUSDT</option><option>ETHUSDT</option><option>BNBUSDT</option>
+          <option>SOLUSDT</option><option>XRPUSDT</option><option>DOGEUSDT</option>
+        </select>
+        <div style="text-align:right"><div class="price" id="px">—</div><div class="mut" id="chg"></div></div>
+      </div>
+      <div id="tfs"></div>
+      <div id="chart"></div>
+      <div class="mut" id="cstat">Loading candles…</div>
+    </div>
+    <div class="card">
+      <h3>Trade <span class="mut" id="tsym"></span></h3>
+      <div class="mut" id="hold">You hold: —</div>
+      <input type="number" id="tamt" placeholder="Amount in USD (min 1)" min="1" inputmode="decimal">
+      <div class="row">
+        <button id="buy" class="green">Buy</button>
+        <button id="sell" class="red">Sell</button>
+      </div>
+      <p id="tmsg" class="msg"></p>
+      <table id="thist"></table>
+    </div>
   </div>
 
-  <div class="card">
-    <h3>Balance</h3>
-    <div class="price" id="bal">$0.00</div>
-    <h3 style="margin-top:14px">Deposit (crypto)</h3>
-    <input type="number" id="amt" placeholder="Amount in USD (min 10)" min="10" inputmode="decimal">
-    <button id="dep">Pay with crypto</button>
-    <p id="dmsg" class="msg"></p>
-    <h3 style="margin-top:14px">Withdraw</h3>
-    <select id="wcur"><option value="USDTTRC20">USDT (TRC20)</option><option value="USDTBSC">USDT (BSC)</option><option value="BTC">BTC</option><option value="ETH">ETH</option><option value="BNB">BNB</option></select>
-    <input type="text" id="waddr" placeholder="Your wallet address" autocomplete="off">
-    <input type="number" id="wamt" placeholder="Amount in USD (min 10)" min="10" inputmode="decimal">
-    <button id="wd">Request withdrawal</button>
-    <p id="wmsg" class="msg"></p>
-    <h3 style="margin-top:14px">Deposits</h3>
-    <table id="hist"></table>
+  <div id="pg-wallet" class="hidden">
+    <div class="card">
+      <div class="mut">Available balance</div>
+      <div class="price" id="bal">$0.00</div>
+      <p id="berr" class="msg"></p>
+      <div class="mut" id="hl"></div>
+    </div>
+    <div class="card">
+      <h3>Deposit (crypto)</h3>
+      <input type="number" id="amt" placeholder="Amount in USD (min 10)" min="10" inputmode="decimal">
+      <button id="dep">Pay with crypto</button>
+      <p id="dmsg" class="msg"></p>
+      <div class="sub">Recent deposits</div>
+      <table id="hist"></table>
+    </div>
+    <div class="card">
+      <h3>Withdraw</h3>
+      <select id="wcur"><option value="USDTTRC20">USDT (TRC20)</option><option value="USDTBSC">USDT (BSC)</option><option value="BTC">BTC</option><option value="ETH">ETH</option><option value="BNB">BNB</option></select>
+      <input type="text" id="waddr" placeholder="Your wallet address" autocomplete="off">
+      <input type="number" id="wamt" placeholder="Amount in USD (min 10)" min="10" inputmode="decimal">
+      <button id="wd">Request withdrawal</button>
+      <p id="wmsg" class="msg"></p>
+      <div class="sub">Recent withdrawals</div>
+      <table id="whist"></table>
+    </div>
   </div>
 </div>
 </div>
@@ -102,6 +130,7 @@ const SUPABASE_KEY = "sb_publishable_1QpAvlAW3a-XPolXUigIkw_uQUkFU9E";
 const $ = id => document.getElementById(id);
 const TFS = ["1m","5m","15m","1h","4h","1d","1w"];
 const APIS = ["https://api.binance.com","https://data-api.binance.vision"];
+const money = n => "$" + Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 let sb=null, signup=false, chart, series, ws, curTf="1m", pollTimer, base=null, lastPx=0, holds={};
 try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }catch(e){ console.error(e); }
 
@@ -122,6 +151,17 @@ async function fnError(error){
   if(error && error.name==="FunctionsFetchError") return "Server function unreachable. Check that it is deployed and Verify JWT is OFF.";
   try{ return (await error.context.json()).error || error.message; }catch(e){ return (error&&error.message)||"Request failed."; }
 }
+
+function page(p){
+  $("pg-trade").classList.toggle("hidden", p!=="trade");
+  $("pg-wallet").classList.toggle("hidden", p!=="wallet");
+  $("t-trade").classList.toggle("on", p==="trade");
+  $("t-wallet").classList.toggle("on", p==="wallet");
+  if(p==="trade" && chart) setTimeout(()=>chart.applyOptions({width:$("chart").clientWidth}),50);
+  loadBalance();
+}
+$("t-trade").onclick=()=>page("trade");
+$("t-wallet").onclick=()=>page("wallet");
 
 $("aswitch").onclick = () => {
   signup = !signup;
@@ -232,21 +272,37 @@ function showPx(p,b){
 function showHold(){
   const s=$("sym").value, q=holds[s]||0;
   $("tsym").textContent=s;
-  $("hold").textContent="You hold: "+q.toFixed(6)+" "+s.replace("USDT","")+(lastPx?" (≈ $"+(q*lastPx).toFixed(2)+")":"");
+  $("hold").textContent="You hold: "+q.toFixed(6)+" "+s.replace("USDT","")+(lastPx?" (≈ "+money(q*lastPx)+")":"");
 }
 
 async function loadBalance(){
+  if(!sb) return;
+  let uid=null;
+  try{ const g=await sb.auth.getSession(); uid=g.data.session&&g.data.session.user.id; }catch(e){}
+  if(!uid) return;
   try{
-    const {data:{user}} = await sb.auth.getUser();
-    const b = await sb.from("balances").select("usd").eq("user_id",user.id).maybeSingle();
-    $("bal").textContent="$"+Number(b.data?.usd||0).toFixed(2);
-    const h = await sb.from("deposits").select("created_at,amount_usd,status").order("created_at",{ascending:false}).limit(5);
-    $("hist").innerHTML=(h.data||[]).map(r=>"<tr><td>"+new Date(r.created_at).toLocaleDateString()+"</td><td>$"+r.amount_usd+"</td><td>"+r.status+"</td></tr>").join("");
-    const ho = await sb.from("holdings").select("symbol,qty").eq("user_id",user.id);
+    const b=await sb.from("balances").select("usd").eq("user_id",uid).maybeSingle();
+    if(b.error){ say("berr","Balance error: "+b.error.message); }
+    else{ say("berr",""); const v=money(b.data?.usd); $("bal").textContent=v; $("bal2").textContent=v; }
+  }catch(e){ say("berr","Balance error: "+(e.message||e)); }
+  try{
+    const h=await sb.from("deposits").select("created_at,amount_usd,status").order("created_at",{ascending:false}).limit(5);
+    $("hist").innerHTML=(h.data||[]).map(r=>"<tr><td>"+new Date(r.created_at).toLocaleDateString()+"</td><td>"+money(r.amount_usd)+"</td><td>"+r.status+"</td></tr>").join("");
+  }catch(e){}
+  try{
+    const w=await sb.from("withdrawals").select("created_at,amount_usd,currency,status").order("created_at",{ascending:false}).limit(5);
+    $("whist").innerHTML=(w.data||[]).map(r=>"<tr><td>"+new Date(r.created_at).toLocaleDateString()+"</td><td>"+money(r.amount_usd)+"</td><td>"+r.currency+"</td><td>"+r.status+"</td></tr>").join("");
+  }catch(e){}
+  try{
+    const ho=await sb.from("holdings").select("symbol,qty").eq("user_id",uid);
     holds={}; (ho.data||[]).forEach(r=>{holds[r.symbol]=Number(r.qty)});
+    const list=Object.keys(holds).filter(k=>holds[k]>0).map(k=>k.replace("USDT","")+" "+holds[k].toFixed(6));
+    $("hl").textContent=list.length?"Holdings: "+list.join(" · "):"";
     showHold();
-    const t = await sb.from("trades").select("created_at,symbol,side,usd,price").order("created_at",{ascending:false}).limit(5);
-    $("thist").innerHTML=(t.data||[]).map(r=>"<tr><td>"+new Date(r.created_at).toLocaleDateString()+"</td><td class='"+(r.side==="buy"?"up":"dn")+"'>"+r.side+"</td><td>"+r.symbol.replace("USDT","")+"</td><td>$"+Number(r.usd).toFixed(2)+"</td></tr>").join("");
+  }catch(e){}
+  try{
+    const t=await sb.from("trades").select("created_at,symbol,side,usd").order("created_at",{ascending:false}).limit(5);
+    $("thist").innerHTML=(t.data||[]).map(r=>"<tr><td>"+new Date(r.created_at).toLocaleDateString()+"</td><td class='"+(r.side==="buy"?"up":"dn")+"'>"+r.side+"</td><td>"+r.symbol.replace("USDT","")+"</td><td>"+money(r.usd)+"</td></tr>").join("");
   }catch(e){}
 }
 setInterval(()=>{ if(sb && !$("app").classList.contains("hidden")) loadBalance(); }, 20000);
@@ -259,7 +315,7 @@ async function trade(side){
   $("buy").disabled=false; $("sell").disabled=false;
   if(error){ say("tmsg", await fnError(error)); return; }
   if(data?.error){ say("tmsg", data.error); return; }
-  say("tmsg",(side==="buy"?"Bought":"Sold")+" $"+usd.toFixed(2)+" of "+symbol.replace("USDT","")+" at "+Number(data.price).toLocaleString(),true);
+  say("tmsg",(side==="buy"?"Bought ":"Sold ")+money(usd)+" of "+symbol.replace("USDT","")+" at "+Number(data.price).toLocaleString(),true);
   $("tamt").value=""; loadBalance();
 }
 $("buy").onclick=()=>trade("buy");
