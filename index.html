@@ -255,7 +255,7 @@ async function trade(side){
   const usd=Math.round(parseFloat($("tamt").value)*100)/100, symbol=$("sym").value;
   if(!(usd>=1)){ say("tmsg","Minimum trade is $1."); return; }
   $("buy").disabled=true; $("sell").disabled=true; say("tmsg","Placing order…",null);
-  const {data,error}=await sb.functions.invoke("trade",{body:{symbol,side,usd}});
+  const {data,error}=await sb.functions.invoke("api",{body:{action:"trade",symbol,side,usd}});
   $("buy").disabled=false; $("sell").disabled=false;
   if(error){ say("tmsg", await fnError(error)); return; }
   if(data?.error){ say("tmsg", data.error); return; }
@@ -269,7 +269,7 @@ $("dep").onclick = async () => {
   const amount=parseFloat($("amt").value);
   if(!(amount>=10)){ say("dmsg","Minimum deposit is $10."); return; }
   say("dmsg","Creating payment…",null);
-  const {data,error}=await sb.functions.invoke("create-deposit",{body:{amount}});
+  const {data,error}=await sb.functions.invoke("api",{body:{action:"deposit",amount,return_url:location.href.split("#")[0]}});
   if(error||!data?.invoice_url){ say("dmsg", error ? await fnError(error) : (data?.error||"Payment gateway error.")); return; }
   location.href=data.invoice_url;
 };
@@ -277,7 +277,7 @@ $("wd").onclick = async () => {
   const amount=parseFloat($("wamt").value), address=$("waddr").value.trim(), currency=$("wcur").value;
   if(!(amount>=10)||address.length<25){ say("wmsg","Enter a valid amount (min $10) and wallet address."); return; }
   say("wmsg","Sending request…",null);
-  const {data,error}=await sb.functions.invoke("request-withdrawal",{body:{amount,address,currency}});
+  const {data,error}=await sb.functions.invoke("api",{body:{action:"withdraw",amount,address,currency}});
   if(error){ say("wmsg", await fnError(error)); return; }
   if(data?.error){ say("wmsg", data.error); return; }
   say("wmsg","Withdrawal requested. It will be sent after review.",true);
